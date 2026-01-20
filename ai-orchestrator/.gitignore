@@ -18,3 +18,11 @@ __pycache__/
 # logs
 *.log
 
+# pdfs
+*.pdf
+
+# ideas
+.idea/
+
+# test data
+test_data/
