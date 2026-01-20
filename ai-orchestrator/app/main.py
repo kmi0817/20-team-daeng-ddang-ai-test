@@ -1,0 +1,11 @@
+from fastapi import FastAPI
+
+from app.routers.mission_router import router as mission_router
+
+app = FastAPI(title="DaengDdang AI Orchestrator", version="0.1.0")
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
+
+app.include_router(mission_router)
