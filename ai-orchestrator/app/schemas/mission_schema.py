@@ -42,6 +42,7 @@ class MissionResult(BaseModel):
     mission_type: MissionType
     success: bool
     confidence: float = Field(..., ge = 0.0, le = 1.0)
+    reason: str = Field(default = "", description = "Explanation for the mission judgment")
 
 
 class MissionAnalysisData(BaseModel):

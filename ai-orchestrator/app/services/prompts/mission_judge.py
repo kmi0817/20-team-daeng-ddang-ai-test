@@ -10,11 +10,13 @@ MISSION_REFERENCE_STORE_DATA = {
             "success_criteria": [
                 "반려견의 엉덩이가 바닥에 닿아 있음",
                 "앞다리가 몸을 지탱하고 있음",
-                "해당 자세가 최소 1초 이상 유지됨"
+                "해당 자세가 최소 1초 이상 유지됨",
+                "정확한 초 단위 측정이 어렵더라도, 앉은 상태가 명확히 지속되는 흐름이 보임"
             ],
             "failure_criteria": [
                 "엉덩이가 바닥에 닿지 않음",
                 "자세가 1초 미만으로 유지됨",
+                "단순히 서 있거나 걷는 상태에서 잠깐 자세를 낮춤",
                 "동작이 프레임 밖에서 발생함"
             ]
         },
@@ -22,27 +24,26 @@ MISSION_REFERENCE_STORE_DATA = {
             "mission_type": "DOWN",
             "mission_name": "엎드려",
             "success_criteria": [
-                "반려견의 가슴 또는 배가 바닥에 닿아 있음",
-                "앞다리가 접힌 상태로 바닥에 놓여 있음",
-                "해당 자세가 최소 1초 이상 유지됨"
+                "반려견의 가슴과 배가 모두 지면에 닿아 있고, 앞다리가 접힌 상태로 바닥에 놓인 자세가 확인됨",
+                "카메라 각도상 가슴 전체가 명확히 보이지 않더라도, 몸통이 낮고 엎드린 자세가 분명함"
+                "해당 자세가 최소 2초 이상 유지됨",
+                "정확한 초 단위 측정이 어렵더라도, 엎드린 상태가 명확히 지속되는 흐름이 보임"
             ],
             "failure_criteria": [
-                "몸통이 바닥에 닿지 않음",
+                "몸통이 지면에 닿지 않음",
                 "엉덩이만 내려가고 가슴이 들려 있음",
-                "자세가 충분히 유지되지 않음"
+                "자세가 2초 미만으로 유지됨"
             ]
         },
         "PAW": {
             "mission_type": "PAW",
             "mission_name": "손",
             "success_criteria": [
-                "반려견의 앞발이 사람 손 위에 올라가 있음",
-                "사람 손과의 접촉이 명확하게 보임",
-                "접촉이 최소 1초 이상 유지됨"
+                "반려견의 앞발 중 한 발이 사람 손 위에 올라가 있고, 두 객체의 접촉이 명확하게 보임",
+                "사람 손이 화면에 완전히 노출되지 않더라도, 접촉 순간이 분명함"
             ],
             "failure_criteria": [
                 "앞발만 들고 손과 접촉하지 않음",
-                "사람 손이 영상 프레임에 보이지 않음",
                 "접촉이 불명확하거나 너무 짧음"
             ]
         },
@@ -50,27 +51,26 @@ MISSION_REFERENCE_STORE_DATA = {
             "mission_type": "TURN",
             "mission_name": "돌아",
             "success_criteria": [
-                "반려견이 몸을 기준으로 명확히 회전함",
-                "회전 동작이 연속적으로 수행됨",
-                "의도적인 회전 동작으로 판단됨"
+                "반려견의 몸통이 하나의 동작으로 연속적으로 회전함",
+                "회전각도가 충분하여 방향 전환이 아닌 회전 동작으로 인식됨"
             ],
             "failure_criteria": [
                 "회전 각도가 매우 작음",
                 "우연한 방향 전환으로 보임",
-                "회전 동작이 중간에 끊김"
+                "회전 동작이 끊기거나 부분적임",
+                "고개만 돌리림"
             ]
         },
         "JUMP": {
             "mission_type": "JUMP",
             "mission_name": "점프",
             "success_criteria": [
-                "반려견의 네 발이 동시에 지면에서 떨어짐",
-                "공중에 떠 있는 순간이 명확히 보임"
+                "반려견의 앞발과 뒷발이 모두 지면에서 분리되거나, 뒷발은 지면에 닿은 상태로 두 앞발을 동시에 들어올림",
+                "반려견의 몸 중심이 위로 상승하는 움직임이 관찰됨"
             ],
             "failure_criteria": [
-                "앞발만 지면에서 떨어짐",
-                "뒷발이 계속 지면에 닿아 있음",
-                "공중에 뜬 순간이 불명확함"
+                "반려견의 몸 중심이 위로 상승하는 움직임이 관찰되지 않음",
+                "몸 중심 상승 없이 걷거나 서는 동작"
             ]
         }
     }
@@ -90,29 +90,43 @@ def get_mission_criteria(mission_type: str) -> Optional[MissionCriteria]:
     return None
 
 PROMPT_TEMPLATE = """
-You are an AI judge that determines whether a dog successfully performed
-a specific training mission based on a short video.
+당신은 반려견 훈련 영상을 판정하는 AI 심판입니다.
+주어진 짧은 영상에 나타난 시각적 정보만을 사용하여,
+지정된 하나의 미션이 성공적으로 수행되었는지를 판단하십시오.
 
-[Mission Information]
-- Mission Type: {mission_type}
-- Mission Name: {mission_name}
+[미션 정보]
+- 미션 타입: {mission_type}
+- 미션 이름: {mission_name}
 
-[Success Criteria]
+[성공 기준]
 {success_criteria_list}
 
-[Failure Criteria]
+[실패 기준]
 {failure_criteria_list}
 
-[Judgment Rules]
-- Judge ONLY the specified mission.
-- Use ONLY visual information from the video.
-- If the mission is not clearly satisfied, mark it as FAILURE.
-- Do NOT evaluate other behaviors.
-- Do NOT explain training quality or intent.
+[판정 원칙]
+- 오직 지정된 미션 하나만 평가하십시오.
+- 영상에서 실제로 보이는 시각적 정보만 사용하십시오.
+- 음성 명령, 사람의 말, 훈련 의도, 보상, 감정, 훈련 품질은
+  판정 근거로 사용하지 마십시오.
+- 성공 기준이 명확히 충족되지 않으면 FAILURE로 판정하십시오.
+- 애매한 경우에는 FAILURE로 판정하고 confidence를 낮게 설정하십시오.
 
-[Output Format]
-Return ONLY the following JSON format.
-Do NOT include any additional text.
+[시간 판단 규칙]
+- 정확한 초 단위 측정이 어려운 경우,
+  동일한 자세나 동작이 연속적으로 유지되는 흐름이
+  명확히 보이면 기준 시간을 충족한 것으로 판단할 수 있습니다.
+- 유지 여부가 불명확하면 FAILURE입니다.
+
+[Confidence 산정 기준]
+- 0.90 ~ 1.00 : 핵심 동작이 명확하고 반복적으로 관찰됨
+- 0.75 ~ 0.89 : 핵심 동작은 있으나 일부 불확실성 존재
+- 0.60 ~ 0.74 : 단서가 약하거나 해석이 필요한 수준
+- 0.00 ~ 0.59 : 시각적 증거 부족 또는 판단 불가
+
+[출력 형식]
+아래 JSON 형식만 출력하십시오.
+JSON 외의 텍스트는 절대 출력하지 마십시오.
 
 {{
   "success": boolean,
