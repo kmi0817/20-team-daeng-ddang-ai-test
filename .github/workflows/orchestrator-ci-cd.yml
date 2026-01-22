@@ -1,0 +1,137 @@
+name: AI Orchestrator CI/CD
+
+on:
+  push:
+    branches: ["main"]
+    paths:
+      - "ai-orchestrator/**"
+      - ".github/workflows/ai-orchestrator-ci-cd.yml"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ai-orchestrator-ci-cd-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  ORCH_DIR: ai-orchestrator
+  RELEASE_ID: ${{ github.sha }}
+  ARTIFACT_FILE: ai-orchestrator.tgz
+
+jobs:
+  ci:
+    name: CI
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Package ai-orchestrator
+        run: |
+          set -euo pipefail
+          test -d "${ORCH_DIR}"
+          tar -czf "${ARTIFACT_FILE}" -C "${ORCH_DIR}" .
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: ai-orchestrator-${{ env.RELEASE_ID }}
+          path: ${{ env.ARTIFACT_FILE }}
+          if-no-files-found: error
+          retention-days: 30
+
+  cd:
+    name: CD
+    runs-on: ubuntu-latest
+    needs: ci
+    timeout-minutes: 15
+
+    steps:
+      - name: Download artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ai-orchestrator-${{ env.RELEASE_ID }}
+
+      - name: Upload artifact to VM Instance
+        uses: appleboy/scp-action@v1.0.0
+        with:
+          host: ${{ secrets.AI_HOST }}
+          username: ${{ secrets.AI_USERNAME }}
+          key: ${{ secrets.AI_SSH_KEY }}
+          port: ${{ secrets.AI_PORT }}
+          source: ${{ env.ARTIFACT_FILE }}
+          target: "/tmp"
+
+      - name: Deploy
+        uses: appleboy/ssh-action@v1.2.4
+        with:
+          host: ${{ secrets.AI_HOST }}
+          username: ${{ secrets.AI_USERNAME }}
+          key: ${{ secrets.AI_SSH_KEY }}
+          port: ${{ secrets.AI_PORT }}
+          script: |
+            set -euo pipefail
+
+            RELEASE_ID="${{ env.RELEASE_ID }}"
+            ARTIFACT_FILE="${{ env.ARTIFACT_FILE }}"
+
+            AI_DIR="${{ secrets.AI_DIR }}"
+            CURRENT_LINK="${AI_DIR}/current"
+            BACKUP_LINK="${AI_DIR}/backup"
+            RELEASE_DIR="${AI_DIR}/releases/${RELEASE_ID}"
+
+            mkdir -p "${RELEASE_DIR}"
+
+            # 1) 직전 버전 백업
+            if [ -e "${CURRENT_LINK}" ]; then
+              CURRENT_RELEASE="$(readlink -f "${CURRENT_LINK}" || true)"
+              if [ -n "${CURRENT_RELEASE}" ] && [ -d "${CURRENT_RELEASE}" ]; then
+                ln -sfn "${CURRENT_RELEASE}" "${BACKUP_LINK}"
+              fi
+            fi
+
+            # 2) 새 릴리즈 압축 해제
+            tar -xzf "/tmp/${ARTIFACT_FILE}" -C "${RELEASE_DIR}"
+            rm -f "/tmp/${ARTIFACT_FILE}"
+
+            # 3) current 교체
+            ln -sfn "${RELEASE_DIR}" "${CURRENT_LINK}"
+
+            cat > "${CURRENT_LINK}/.env" <<EOF
+            GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}
+            GOOGLE_API_KEY=${{ secrets.GOOGLE_API_KEY }}
+            EOF
+            chmod 600 "${CURRENT_LINK}/.env"
+
+            # 4) venv 준비
+            if [ ! -d "${AI_DIR}/venv" ]; then
+              python3 -m venv "${AI_DIR}/venv"
+            fi
+
+            "${AI_DIR}/venv/bin/python" -m pip install --upgrade pip wheel setuptools
+
+            # 5) requirements 설치
+            if [ -f "${CURRENT_LINK}/requirements.txt" ]; then
+              "${AI_DIR}/venv/bin/pip" install -r "${CURRENT_LINK}/requirements.txt"
+            else
+              echo "ERROR: requirements.txt not found in ${CURRENT_LINK}"
+              exit 1
+            fi
+
+            # 6) PM2로 uvicorn 실행
+            APP_NAME="app-ai"
+            APP_MODULE="app.main:app"
+            PORT="8000"
+
+            pm2 describe "${APP_NAME}" >/dev/null 2>&1 && pm2 delete "${APP_NAME}" || true
+
+            cd "${CURRENT_LINK}"
+            PORT="${PORT}" pm2 start "${AI_DIR}/venv/bin/uvicorn" \
+              --name "${APP_NAME}" \
+              --interpreter none \
+              -- \
+              "${APP_MODULE}" --host 0.0.0.0 --port "${PORT}"
+            pm2 save
