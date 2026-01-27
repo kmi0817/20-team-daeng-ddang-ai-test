@@ -11,16 +11,12 @@ class FaceAnalyzeRequest(BaseModel):
 
 class FaceAnalyzeResponse(BaseModel):
     analysis_id: str
-    request_id: str # Keep for internal tracking? User asked for analysis_id in response. Let's keep both or alias. User spec: analysis_id, predicted_emotion, confidence, summary, emotion_probabilities.
-    # User's response structure:
-    # { analysis_id, predicted_emotion, confidence, summary, emotion_probabilities }
-    
-    predicted_emotion: str
-    confidence: float = Field(..., ge=0.0, le=1.0)
-    summary: str
-    emotion_probabilities: Dict[str, float]
-    
-    debug: Optional[Dict[str, Any]] = None
+    analyze_at: str
+    processing: Dict[str, Any]
+    result: Dict[str, Any] # "emotion": { ... }
+
+class FaceAnalyzeResult(BaseModel):
+    emotion: Dict[str, Any]
 
 class FaceErrorResponse(BaseModel):
     request_id: str

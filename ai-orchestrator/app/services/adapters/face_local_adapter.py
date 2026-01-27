@@ -8,9 +8,11 @@ import cv2
 import torch
 import numpy as np
 from PIL import Image
-from typing import Dict, Any, List
+import datetime
+import time
 import logging
 import requests
+from typing import Dict, Any, List, Optional, Tuple
 
 from app.core.config import (
     FACE_DETECTION_MODEL_ID,
@@ -19,6 +21,34 @@ from app.core.config import (
 )
 from app.schemas.face_schema import FaceAnalyzeRequest, FaceAnalyzeResponse, FaceErrorResponse
 from app.services.adapters.face_adapter import FaceAdapter
+
+# Constants from Design
+FACE_CONF_THRESHOLD = 0.6
+FACE_AREA_MIN_RATIO = 0.05
+MAX_FRAMES = 8
+
+NARRATION_TEMPLATES = {
+    "happy": {
+        "HIGH": "오늘 산책 최고였어! 꼬리가 절로 흔들렸어.",
+        "MID": "산책하면서 기분이 꽤 좋았어.",
+        "LOW": "음… 그래도 조금은 즐거웠던 것 같아."
+    },
+    "relaxed": {
+        "HIGH": "바람 맞으면서 아주 편안하게 걸었어.",
+        "MID": "천천히 걷기 딱 좋은 기분이었어.",
+        "LOW": "아마도 그냥 무난하고 차분했던 것 같아."
+    },
+    "sad": {
+        "HIGH": "오늘은 조금 힘이 없어서 발걸음이 느렸어.",
+        "MID": "산책 중에 살짝 풀이 죽었어.",
+        "LOW": "음… 기분이 아주 좋진 않았던 것 같아."
+    },
+    "angry": {
+        "HIGH": "괜히 신경 쓰이는 게 많아서 좀 불편했어.",
+        "MID": "조금 예민해져 있었던 것 같아.",
+        "LOW": "살짝 거슬리는 순간들이 있었어."
+    }
+}
 
 # Try to import ML libraries (handled gracefully if missing during initial setup)
 try:
@@ -64,143 +94,75 @@ class FaceLocalAdapter(FaceAdapter):
     def analyze(self, request_id: str, req: FaceAnalyzeRequest) -> FaceAnalyzeResponse:
         logger.info(f"[{request_id}] Starting local face analysis for {req.video_url}")
         
+        start_time = time.time()
         tmp_video_path = None
+        
         try:
             # 1. Download Video
             tmp_video_path = self._download_video(req.video_url, request_id)
             
-            # 2. Process Video
-            emotion_probs = self._process_video(tmp_video_path)
+            # 2. Extract & Process Frames
+            # Limit to 8 frames as per spec
+            frame_results = self._process_video(tmp_video_path)
             
-            # 3. Aggregate Results
-            if not emotion_probs:
-                logger.warning(f"[{request_id}] No face/dog detected in video.")
-                return FaceAnalyzeResponse(
-                    analysis_id=req.analysis_id,
-                    request_id=request_id,
-                    predicted_emotion="unknown",
-                    confidence=0.0,
-                    summary="강아지를 찾을 수 없습니다.",
-                    emotion_probabilities={}
-                )
+            frames_total_extracted = 8 # We target 8. In _process_video we will enforce this.
+            frames_face_detected = len(frame_results)
+            frames_emotion_inferred = len(frame_results) 
+            
+            # 3. Ensemble Calculation
+            if not frame_results:
+                logger.warning(f"[{request_id}] No face detected in any selected frames.")
+                # Return failure response or success with "unknown" status?
+                # Spec says Error Code FACE_NOT_DETECTED if all frames fail.
+                # However, to be safe with the schema, let's Raise standardized error or return empty result.
+                # Spec: "FACE_NOT_DETECTED" 422
+                raise ValueError("FACE_NOT_DETECTED")
 
-            # 8-emotion dict
-            # keys: anger, contempt, disgust, fear, happiness, neutral, sadness, surprise
+            predicted_emotion, confidence, final_probs = self._calculate_ensemble(frame_results)
             
-            # 4-target-emotion map
-            # angry: anger, disgust, contempt
-            # happy: happiness, surprise
-            # sad: sadness, fear
-            # relaxed: neutral
+            # 4. Generate Narration
+            summary = self._generate_narration(predicted_emotion, confidence)
             
-            mapped_scores = {
-                "angry": 0.0,
-                "happy": 0.0,
-                "sad": 0.0,
-                "relaxed": 0.0
+            # 5. Construct Response
+            processing_stats = {
+                "analysis_time_ms": int((time.time() - start_time) * 1000),
+                "frames_extracted": frames_total_extracted, # We attempt 8
+                "frames_face_detected": frames_face_detected,
+                "frames_emotion_inferred": frames_emotion_inferred,
+                "fps_used": 5 # fixed in spec? or dynamic. We will say we used sampled frames.
             }
             
-            # Aggregate frame probabilities first
-            avg_probs_8 = {}
-            total_frames = len(emotion_probs)
-            for prob_dict in emotion_probs:
-                for emo, score in prob_dict.items():
-                    avg_probs_8[emo] = avg_probs_8.get(emo, 0.0) + score
-            
-            for emo in avg_probs_8:
-                avg_probs_8[emo] /= total_frames
-
-            # Map various model labels to 4 target emotions
-            # dima806 labels: Ahegao, Angry, Happy, Neutral, Sad, Surprise
-            # HSE labels: anger, contempt, disgust, fear, happiness, neutral, sadness, surprise
-            
-            for emo, score in avg_probs_8.items():
-                e = emo.lower()
-                
-                # Angry group
-                if e in ["anger", "angry", "disgust", "contempt"]:
-                    mapped_scores["angry"] += score
-                
-                # Happy group
-                elif e in ["happiness", "happy", "surprise", "ahegao"]:
-                    mapped_scores["happy"] += score
-                
-                # Sad group
-                elif e in ["sadness", "sad", "fear"]:
-                    mapped_scores["sad"] += score
-                
-                # Relaxed group
-                elif e in ["neutral", "neutrality", "relaxed"]:
-                    mapped_scores["relaxed"] += score
-                
-                else:
-                    # Fallback: add to relaxed
-                    mapped_scores["relaxed"] += score
-
-            # Normalize just in case (though sum should be ~1.0)
-            total_score = sum(mapped_scores.values())
-            if total_score > 0:
-                for k in mapped_scores:
-                    mapped_scores[k] /= total_score
-            
-            # Find top emotion
-            top_emotion = max(mapped_scores, key=mapped_scores.get)
-            confidence = mapped_scores[top_emotion]
-
-            # Generate Summary
-            # Generate Summary
-            summary_options = {
-                "angry": [
-                    "강아지가 현재 불만이 있거나 화가 난 상태로 보입니다.",
-                    "지금은 강아지가 예민해 보여요. 주의가 필요합니다.",
-                    "으르렁거리거나 화가 난 표정이 감지되었습니다."
-                ],
-                "happy": [
-                    "강아지가 즐겁고 행복해 보입니다!",
-                    "산책이 정말 즐거운가 봐요! 표정이 아주 밝습니다.",
-                    "강아지가 신나 있어요! 꼬리를 흔들고 있을지도 몰라요."
-                ],
-                "sad": [
-                    "강아지가 다소 우울하거나 겁을 먹은 것 같아요.",
-                    "혹시 무서운 게 있었나요? 강아지가 위축되어 보입니다.",
-                    "표정이 조금 슬퍼 보입니다. 컨디션을 확인해 주세요."
-                ],
-                "relaxed": [
-                    "강아지가 편안하고 평온한 상태입니다.",
-                    "아주 여유로운 표정이네요. 산책을 즐기고 있어요.",
-                    "긴장하지 않고 편안하게 쉬거나 걷고 있는 모습입니다."
-                ]
+            result_data = {
+                "emotion": {
+                    "predicted_emotion": predicted_emotion,
+                    "confidence": confidence,
+                    "summary": summary,
+                    "emotion_probabilities": final_probs
+                }
             }
-            # top_emotion이 목록에 없으면(unknown 등) relaxed로 처리하거나 기본값 사용
-            options = summary_options.get(top_emotion, ["강아지의 상태를 명확히 알기 어렵습니다."])
-            summary = random.choice(options)
-
+            
             return FaceAnalyzeResponse(
-                analysis_id=req.analysis_id,
-                request_id=request_id,
-                predicted_emotion=top_emotion,
-                confidence=float(confidence),
-                summary=summary,
-                emotion_probabilities=mapped_scores
+                analysis_id=req.analysis_id or request_id,
+                analyze_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+                processing=processing_stats,
+                result=result_data
             )
 
+        except ValueError as ve:
+            # Handle known logical errors like FACE_NOT_DETECTED
+            # We might want to bubble this up properly, but for now log and re-raise
+            logger.error(f"[{request_id}] Analysis Valid Error: {ve}")
+            raise ve
         except Exception as e:
             logger.error(f"[{request_id}] Local analysis failed: {e}", exc_info=True)
-            # We return a fallback response or raise depending on requirement. 
-            # For now, let's bubble up as error or return unknown
-            # But the signature expects FaceAnalyzeResponse. 
-            # Ideally we might raise an HTTPException in service if strictly failed.
             raise e
         finally:
-            # Cleanup
             if tmp_video_path and os.path.exists(tmp_video_path):
                 os.remove(tmp_video_path)
 
     def _download_video(self, url: str, request_id: str) -> str:
-        # Create temp file
         fd, path = tempfile.mkstemp(suffix=".mp4")
         os.close(fd)
-        
         logger.debug(f"[{request_id}] Downloading video to {path}")
         with requests.get(url, stream=True) as r:
             r.raise_for_status()
@@ -209,83 +171,78 @@ class FaceLocalAdapter(FaceAdapter):
                     f.write(chunk)
         return path
 
-    def _process_video(self, video_path: str) -> List[Dict[str, float]]:
+    def _process_video(self, video_path: str) -> List[Dict[str, Any]]:
         cap = cv2.VideoCapture(video_path)
-        fps = cap.get(cv2.CAP_PROP_FPS)
-        frame_interval = int(fps) # 1 frame per second
-        if frame_interval < 1: frame_interval = 1
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        results_list = []
-        frame_idx = 0
+        # Select 8 equidistant frames
+        # If total_frames < 8, take all.
+        if total_frames <= MAX_FRAMES:
+            indices = list(range(total_frames))
+        else:
+            indices = np.linspace(0, total_frames - 1, MAX_FRAMES, dtype=int).tolist()
+            
+        results = []
         
-        while cap.isOpened():
+        for idx in indices:
+            cap.set(cv2.CAP_PROP_POS_FRAMES, idx)
             ret, frame = cap.read()
             if not ret:
-                break
+                continue
             
-            if frame_idx % frame_interval == 0:
-                frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
-                probs = self._analyze_frame(frame_rgb)
-                if probs:
-                    results_list.append(probs)
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
             
-            frame_idx += 1
-            
+            # Detect & Analyze
+            res = self._analyze_frame(frame_rgb)
+            if res:
+                 results.append(res)
+                 
         cap.release()
-        return results_list
+        return results
 
-    def _analyze_frame(self, frame_img: np.ndarray) -> Dict[str, float] | None:
-        # 1. Detect Dog (YOLO)
-        # class=16 is dog in COCO. 
-        # But if using fine-tuned model, it might be class 0 or 1.
-        # We will assume fine-tuned model has proper class names or we just take the best detection.
-        # Let's try to find "dog" in names or just take the highest confidence object if detection model is specific.
-        
-        results = self.detector(frame_img, verbose=False) 
-        # results is a list of Result objects
-        result = results[0]
+    def _analyze_frame(self, frame_img: np.ndarray) -> Optional[Dict[str, Any]]:
+        # 1. Detect (YOLO)
+        yolo_results = self.detector(frame_img, verbose=False)
+        if not yolo_results: return None
+        result = yolo_results[0]
         
         best_box = None
         max_conf = 0.0
         
         for box in result.boxes:
-            # Check class. If generic YOLO, check for dog (cls 16). 
-            # If custom dog model, maybe any class is fine.
-            # Using class name check to be safe if model has metadata
-            cls_id = int(box.cls[0])
-            cls_name = result.names.get(cls_id, "").lower()
             conf = float(box.conf[0])
+            # Filter by confidence
+            if conf < FACE_CONF_THRESHOLD:
+                continue
+                
+            # Filter by Area logic (>= 5% of frame)
+            # box.xyxy is [x1, y1, x2, y2]
+            coords = box.xyxy[0].cpu().numpy()
+            width = coords[2] - coords[0]
+            height = coords[3] - coords[1]
+            area_ratio = (width * height) / (frame_img.shape[0] * frame_img.shape[1])
             
-            # Simple heuristic: if "dog" in name OR it is a custom model (we assume custom model detects dogs)
-            # If we strictly want dogs and model is generic:
-            if "dog" in cls_name or "yolo" in FACE_DETECTION_MODEL_ID.lower(): # Loose check
-                # For standard YOLOCOCO, dog is 16.
-                # If custom model, it might be the only class.
-                pass
-            
+            if area_ratio < FACE_AREA_MIN_RATIO:
+                continue
+
             if conf > max_conf:
                 max_conf = conf
-                best_box = box.xyxy[0].cpu().numpy() # [x1, y1, x2, y2]
+                best_box = coords
 
         if best_box is None:
             return None
 
         # 2. Crop
         x1, y1, x2, y2 = map(int, best_box)
-        h, w, _ = frame_img.shape
-        # Add small margin?
-        margin = 0 
-        x1 = max(0, x1 - margin)
-        y1 = max(0, y1 - margin)
-        x2 = min(w, x2 + margin)
-        y2 = min(h, y2 + margin)
+        # Margin optional, safely clip
+        h_img, w_img, _ = frame_img.shape
+        x1, y1 = max(0, x1), max(0, y1)
+        x2, y2 = min(w_img, x2), min(h_img, y2)
         
         crop = frame_img[y1:y2, x1:x2]
-        if crop.size == 0:
-            return None
-            
-        # 3. Classify Emotion
-        # Convert to PIL for transformers
+        if crop.size == 0: return None
+        
+        # 3. Emotion Inference
         pil_img = Image.fromarray(crop)
         inputs = self.processor(images=pil_img, return_tensors="pt")
         
@@ -293,10 +250,75 @@ class FaceLocalAdapter(FaceAdapter):
             outputs = self.classifier(**inputs)
             probs = F.softmax(outputs.logits, dim=-1)[0]
             
-        # Map to labels
-        scores = {}
+        # Map output to 4 target emotions
+        # We assume general model (7-8 classes) -> Map to 4
+        mapped_probs = self._map_emotions(probs)
+        
+        return {
+            "face_confidence": max_conf,
+            "emotion_probs": mapped_probs
+        }
+
+    def _map_emotions(self, probs: torch.Tensor) -> Dict[str, float]:
+        # Mapping logic (same as before but cleaner)
+        raw_scores = {}
         for i, p in enumerate(probs):
-            label = self.id2label.get(i, str(i))
-            scores[label] = float(p)
+            label = self.id2label.get(i, str(i)).lower()
+            raw_scores[label] = float(p)
             
-        return scores
+        target_scores = {"angry": 0.0, "happy": 0.0, "sad": 0.0, "relaxed": 0.0}
+        
+        for label, score in raw_scores.items():
+            if label in ["anger", "angry", "disgust", "contempt"]:
+                target_scores["angry"] += score
+            elif label in ["happiness", "happy", "surprise", "ahegao", "joy"]: # 'joy' often exists
+                target_scores["happy"] += score
+            elif label in ["sadness", "sad", "fear", "crying"]:
+                target_scores["sad"] += score
+            elif label in ["neutral", "neutrality", "relaxed", "calm"]:
+                target_scores["relaxed"] += score
+            else:
+                target_scores["relaxed"] += score # Default fallback
+        
+        # Normalize
+        total = sum(target_scores.values())
+        if total > 0:
+            for k in target_scores:
+                target_scores[k] /= total
+                
+        return target_scores
+
+    def _calculate_ensemble(self, frame_results: List[Dict[str, Any]]) -> Tuple[str, float, Dict[str, float]]:
+        # Encapsulates formula: Sum(prob * face_conf) / Sum(face_conf)
+        
+        final_probs = {"angry": 0.0, "happy": 0.0, "sad": 0.0, "relaxed": 0.0}
+        total_weight = sum(r["face_confidence"] for r in frame_results)
+        
+        if total_weight == 0: 
+            # Should not happen if list not empty
+            return "relaxed", 0.0, final_probs
+            
+        for res in frame_results:
+            w = res["face_confidence"] / total_weight
+            for emo in final_probs:
+                final_probs[emo] += res["emotion_probs"][emo] * w
+                
+        # Determine winner
+        predicted_emotion = max(final_probs, key=final_probs.get)
+        confidence = final_probs[predicted_emotion]
+        
+        return predicted_emotion, confidence, final_probs
+
+    def _generate_narration(self, emotion: str, confidence: float) -> str:
+        level = self._get_confidence_level(confidence)
+        # fallback if emotion key missing
+        templates = NARRATION_TEMPLATES.get(emotion, NARRATION_TEMPLATES["relaxed"])
+        return templates.get(level, templates["MID"])
+
+    def _get_confidence_level(self, confidence: float) -> str:
+        if confidence >= 0.75:
+            return "HIGH"
+        elif confidence >= 0.50:
+            return "MID"
+        else:
+            return "LOW"

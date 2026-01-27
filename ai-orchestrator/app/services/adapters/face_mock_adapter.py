@@ -1,6 +1,7 @@
 # app/services/adapters/face_mock_adpater.py
 from __future__ import annotations
 import random
+import datetime
 
 from app.schemas.face_schema import FaceAnalyzeRequest, FaceAnalyzeResponse
 from app.services.adapters.face_adapter import FaceAdapter
@@ -47,16 +48,21 @@ class FaceMockAdapter(FaceAdapter):
         summary = random.choice(options)
 
         return FaceAnalyzeResponse(
-            analysis_id=req.analysis_id,
-            request_id=request_id,
-            predicted_emotion=label,
-            confidence=max(probs.get(label, 0.0), 0.0),
-            summary=summary,
-            emotion_probabilities=probs,
-            debug={
-                "mode": "mock",
-                "note": "mock response (no model)",
-                "input_type": "video" if req.video_url else "none",
-                "options": req.options,
+            analysis_id=req.analysis_id or request_id,
+            analyze_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            processing={
+                "analysis_time_ms": 100,
+                "frames_extracted": 8,
+                "frames_face_detected": 6,
+                "frames_emotion_inferred": 6,
+                "fps_used": 5
             },
+            result={
+                "emotion": {
+                    "predicted_emotion": label,
+                    "confidence": max(probs.get(label, 0.0), 0.0),
+                    "summary": summary,
+                    "emotion_probabilities": probs
+                }
+            }
         )

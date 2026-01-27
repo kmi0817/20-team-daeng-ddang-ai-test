@@ -1,7 +1,8 @@
-# app/services/adapters/face_http_adpater.py
+# app/services/adapters/face_http_adapter.py
 from __future__ import annotations
 
 import requests
+import datetime
 
 from app.core.config import FACE_SERVICE_URL, FACE_HTTP_TIMEOUT_SECONDS
 from app.schemas.face_schema import FaceAnalyzeRequest, FaceAnalyzeResponse
@@ -15,16 +16,24 @@ class FaceHttpAdapter(FaceAdapter):
         url = f"{self.base_url}/analyze"
 
         payload = req.model_dump() if hasattr(req, "model_dump") else req.dict()
-
         payload["request_id"] = request_id
 
         r = requests.post(url, json=payload, timeout=FACE_HTTP_TIMEOUT_SECONDS)
         r.raise_for_status()
         data = r.json()
 
+        # Handle upstream response. If upstream already matches new spec, use it.
+        # Otherwise map flat fields.
+        
+        # Check if new spec structure exists
+        if "result" in data and "processing" in data:
+            return FaceAnalyzeResponse(**data)
+
+        # Legacy/Flat fallback
         predicted = data.get("predicted_emotion") or data.get("emotion") or "unknown"
         conf = data.get("confidence") or data.get("score") or 0.0
         probs = data.get("emotion_probabilities") or data.get("probs") or {}
+        summary = data.get("summary") or "External Analysis"
         debug = data.get("debug")
 
         try:
@@ -34,9 +43,22 @@ class FaceHttpAdapter(FaceAdapter):
         conf = min(max(conf, 0.0), 1.0)
 
         return FaceAnalyzeResponse(
-            request_id=request_id,
-            predicted_emotion=str(predicted),
-            confidence=conf,
-            emotion_probabilities={str(k): float(v) for k, v in probs.items()} if isinstance(probs, dict) else {},
-            debug={"mode": "http", "upstream_url": url, "upstream_debug": debug},
+            analysis_id=req.analysis_id or request_id,
+            analyze_at=datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            processing={
+                "analysis_time_ms": 0,
+                "frames_extracted": 0,
+                "frames_face_detected": 0,
+                "frames_emotion_inferred": 0,
+                "fps_used": 0,
+                "note": "http_adapter_legacy_map"
+            },
+            result={
+                "emotion": {
+                    "predicted_emotion": str(predicted),
+                    "confidence": conf,
+                    "summary": str(summary),
+                    "emotion_probabilities": {str(k): float(v) for k, v in probs.items()} if isinstance(probs, dict) else {}
+                }
+            }
         )
