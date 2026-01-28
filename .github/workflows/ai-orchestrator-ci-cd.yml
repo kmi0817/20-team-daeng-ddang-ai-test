@@ -47,7 +47,7 @@ jobs:
         id: time_lint
         run: |
           start=$(date +%s)
-          # ruff check ai-orchestrator
+          ruff check ai-orchestrator
           end=$(date +%s)
           echo "start=${start}" >> "$GITHUB_OUTPUT"
           echo "end=${end}" >> "$GITHUB_OUTPUT"
