@@ -4,7 +4,7 @@ import os
 # 디버그 모드 (True일 경우 상세 로그 및 사유 반환)
 DEBUG = os.getenv("DEBUG", "false").lower() == "true"
 
-FACE_MODE = os.getenv("FACE_MODE", "mock").lower()
+FACE_MODE = os.getenv("FACE_MODE", "http").lower()
 FACE_SERVICE_URL = os.getenv("FACE_SERVICE_URL", "http://localhost:8100").rstrip("/")
 FACE_HTTP_TIMEOUT_SECONDS = float(os.getenv("FACE_HTTP_TIMEOUT_SECONDS", "20"))
 

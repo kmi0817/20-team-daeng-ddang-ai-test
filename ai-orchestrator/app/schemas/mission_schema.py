@@ -17,6 +17,7 @@ class MissionType(str, Enum):
     PAW = "PAW"
     TURN = "TURN"
     JUMP = "JUMP"
+    FREE = "FREE"
 
 # 미션 상세 수행 상태 (현재 코드에서는 사용이 적음)
 class MissionStatus(str, Enum):
@@ -49,3 +50,14 @@ class MissionAnalysisData(BaseModel):
     walk_id: int
     analyzed_at: str     # 분석 완료 시간 (ISO 포맷)
     missions: List[MissionResult] # 각 미션별 상세 결과 리스트
+
+# 에러 응답 상세 정보 스키마
+class MissionErrorDetail(BaseModel):
+    code: str = Field(..., description="에러 코드 (예: ANALYSIS_REQUEST_FAILED)")
+    message: str = Field(..., description="에러 상세 메시지")
+
+# 미션 분석 실패 시 반환되는 에러 스키마 (4xx/5xx)
+class MissionErrorResponse(BaseModel):
+    analysis_id: str = Field(..., description="요청 식별자")
+    status: str = Field("failed", description="상태 값 (항상 'failed')")
+    error: MissionErrorDetail = Field(..., description="에러 상세 내용")

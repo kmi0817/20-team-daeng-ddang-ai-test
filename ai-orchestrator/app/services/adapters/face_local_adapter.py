@@ -101,8 +101,12 @@ class FaceLocalAdapter(FaceAdapter):
         try:
             self.processor = AutoImageProcessor.from_pretrained(FACE_EMOTION_MODEL_ID)
         except Exception:
-            logger.warning(f"Could not load processor from {FACE_EMOTION_MODEL_ID}, falling back to google/efficientnet-b0")
             self.processor = AutoImageProcessor.from_pretrained("google/efficientnet-b0")
+            # Force standard ImageNet normalization
+            self.processor.do_normalize = True
+            self.processor.image_mean = [0.485, 0.456, 0.406]
+            self.processor.image_std = [0.229, 0.224, 0.225]
+            self.processor.size = {"height": 224, "width": 224}
 
         # 2. Load Model Architecture (EfficientNet-B0)
         # The user's model is a torchvision EfficientNet-B0 with a 4-class classifier.

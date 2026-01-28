@@ -33,10 +33,19 @@ class FaceHttpAdapter(FaceAdapter):
         except Exception:
             pass
 
-        # Fallback mapping if upstream is inconsistent
+        # Fallback mapping if upstream returns inconsistent flat or nested data
+        # Prioritize flat structure
         predicted = data.get("predicted_emotion") or data.get("emotion") or "unknown"
         conf = data.get("confidence") or data.get("score") or 0.0
-        probs = data.get("emotion_probabilities") or data.get("probs") or {}
+        
+        # Handle probability map
+        probs = data.get("emotion_probabilities") or data.get("probs")
+        if not probs:
+            # Check if nested in 'emotion' dict (old schema style)
+            if isinstance(data.get("emotion"), dict):
+                probs = data.get("emotion", {}).get("emotion_probabilities")
+        probs = probs or {}
+
         summary = data.get("summary") or "External Analysis"
         debug = data.get("debug")
         
