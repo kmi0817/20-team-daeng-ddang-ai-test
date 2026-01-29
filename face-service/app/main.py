@@ -35,10 +35,8 @@ def analyze_face(req: FaceAnalyzeRequest) -> FaceAnalyzeResponse:
     
     # Generate a request ID if not provided, or use analysis_id
     req_id = req.analysis_id or "req_unknown" 
-    
+    try:
         return analyzer.analyze(req_id, req)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
