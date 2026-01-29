@@ -34,4 +34,4 @@ scripts/
 testing_dev
 
 # pid
-.pid
+*.pid

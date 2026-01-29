@@ -233,13 +233,17 @@ class FaceAnalyzer:
             if not frame_results:
                 logger.warning(f"[{request_id}] 선택된 프레임에서 강아지 얼굴을 찾지 못했습니다.")
                 # 실패 응답 반환 (error_code 설정, 나머지 None)
-                processing_stats = {
-                    "analysis_time_ms": int((time.time() - start_time) * 1000),
-                    "frames_extracted": frames_total_extracted,
-                    "frames_face_detected": 0,
-                    "frames_emotion_inferred": 0,
-                    "fps_used": 2
-                }
+                include_processing = DEBUG or req.options.get("include_processing", False)
+                
+                processing_stats = None
+                if include_processing:
+                    processing_stats = {
+                        "analysis_time_ms": int((time.time() - start_time) * 1000),
+                        "frames_extracted": frames_total_extracted,
+                        "frames_face_detected": 0,
+                        "frames_emotion_inferred": 0,
+                        "fps_used": 2
+                    }
                 return FaceAnalyzeResponse(
                      analysis_id=req.analysis_id or request_id,
                      video_url=req.video_url,
@@ -253,13 +257,17 @@ class FaceAnalyzer:
             summary = self._generate_narration(predicted_emotion, confidence)
             
             # 5. 응답 구성
-            processing_stats = {
-                "analysis_time_ms": int((time.time() - start_time) * 1000),
-                "frames_extracted": frames_total_extracted, # 8 프레임 시도
-                "frames_face_detected": frames_face_detected,
-                "frames_emotion_inferred": frames_emotion_inferred,
-                "fps_used": 2 # 2 fps 사용
-            }
+            include_processing = DEBUG or req.options.get("include_processing", False)
+            
+            processing_stats = None
+            if include_processing:
+                processing_stats = {
+                    "analysis_time_ms": int((time.time() - start_time) * 1000),
+                    "frames_extracted": frames_total_extracted, # 8 프레임 시도
+                    "frames_face_detected": frames_face_detected,
+                    "frames_emotion_inferred": frames_emotion_inferred,
+                    "fps_used": 2 # 2 fps 사용
+                }
             
             return FaceAnalyzeResponse(
                 analysis_id=req.analysis_id or request_id,
