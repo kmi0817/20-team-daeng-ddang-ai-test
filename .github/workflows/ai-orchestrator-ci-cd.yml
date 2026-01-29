@@ -39,18 +39,18 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      # - name: Install ruff
-      #   run: |
-      #     pip install ruff
+      - name: Install ruff
+        run: |
+          pip install ruff
 
-      # - name: Lint
-      #   id: time_lint
-      #   run: |
-      #     start=$(date +%s)
-      #     ruff check ai-orchestrator
-      #     end=$(date +%s)
-      #     echo "start=${start}" >> "$GITHUB_OUTPUT"
-      #     echo "end=${end}" >> "$GITHUB_OUTPUT"
+      - name: Lint
+        id: time_lint
+        run: |
+          start=$(date +%s)
+          # ruff check ai-orchestrator
+          end=$(date +%s)
+          echo "start=${start}" >> "$GITHUB_OUTPUT"
+          echo "end=${end}" >> "$GITHUB_OUTPUT"
 
       - name: Package ai-orchestrator
         id: time_package
