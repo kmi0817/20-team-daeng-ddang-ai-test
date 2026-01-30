@@ -29,7 +29,7 @@ from app.schemas.face_schema import FaceAnalyzeRequest, FaceAnalyzeResponse, Fac
 from app.schemas.face_schema import FaceAnalyzeRequest, FaceAnalyzeResponse, FaceErrorResponse
 
 # 표정 분석 설정 (Design Spec 반영 및 완화된 기준 적용)
-FACE_CONF_THRESHOLD = 0.6     # 얼굴 탐지 신뢰도 임계값 (0.6 -> 0.4 완화)
+FACE_CONF_THRESHOLD = 0.65     # 얼굴 탐지 신뢰도 임계값 (0.6 -> 0.4 완화)
 FACE_AREA_MIN_RATIO = 0.02     # 프레임 대비 얼굴 최소 크기 비율 (5% -> 2% 완화)
 MAX_FRAMES = 12                # 분석할 최대 프레임 수 (8 -> 12 증량)
 DOG_CLASS_ID = 16              # COCO Dataset: 16 = Dog, 0 = Person
