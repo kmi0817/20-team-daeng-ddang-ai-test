@@ -387,7 +387,14 @@ class FaceAnalyzer:
             
             # Save Raw Frame
             raw_filename = f"{request_id}_{frame_idx}_00_raw.jpg"
-            cv2.imwrite(str(debug_dir / raw_filename), frame_bgr)
+            save_path = debug_dir / raw_filename
+            success = cv2.imwrite(str(save_path), frame_bgr)
+            logger.info(f"DEBUG MODE: Saving frame to {save_path.absolute()} (Success: {success})")
+            
+        else:
+            # Print once to confirm DEBUG is false
+            if frame_idx == 0:
+                logger.debug("DEBUG is False, skipping image dump.")
 
         # 1. 얼굴 탐지 (YOLO) - BGR 입력 허용
         yolo_results = self.detector(frame_bgr, verbose=False)

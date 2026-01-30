@@ -5,8 +5,13 @@ import logging
 from app.schemas.face_schema import FaceAnalyzeRequest, FaceAnalyzeResponse
 from app.services.face_analyzer import FaceAnalyzer
 
+from app.core.config import DEBUG
+
 # Setup Logging
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(
+    level=logging.DEBUG if DEBUG else logging.INFO,
+    format="%(asctime)s [%(levelname)s] %(name)s: %(message)s"
+)
 logger = logging.getLogger("face_server")
 
 # Global Analyzer Instance
