@@ -12,6 +12,7 @@ COPY . .
 
 # Expose port (default 8000)
 EXPOSE 8000
+#테스트
 
 # Command to run the application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
