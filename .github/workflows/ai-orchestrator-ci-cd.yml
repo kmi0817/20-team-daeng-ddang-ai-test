@@ -37,6 +37,9 @@ jobs:
 
       - name: Checkout
         uses: actions/checkout@v4
+        with:
+          sparse-checkout: ai-orchestrator
+          sparse-checkout-cone-mode: false
 
       - name: Install ruff
         run: pip install ruff
@@ -64,7 +67,10 @@ jobs:
         id: time_build
         run: |
           start=$(date +%s)
-          docker build -t "${{ env.DOCKER_IMAGE }}:${{ env.RELEASE_ID}}" .
+          docker build \
+           -f ai-orchestrator/Dockerfile \
+           -t "${{ env.DOCKER_IMAGE }}:${{ env.RELEASE_ID}}" \
+           ai-orchestrator
           end=$(date +%s)
           echo "start=${start}" >> "$GITHUB_OUTPUT"
           echo "end=${end}" >> "$GITHUB_OUTPUT"
