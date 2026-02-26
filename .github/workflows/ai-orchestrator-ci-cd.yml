@@ -11,12 +11,6 @@ on:
       - "!ai-orchestrator/.gitignore"
       - "!ai-orchestrator/.idea/**"
       - "!ai-orchestrator/server.pid"
-    paths-ignore:
-      - "ai-orchestrator/README.md"
-      - "ai-orchestrator/.env.example"
-      - "ai-orchestrator/.gitignore"
-      - "ai-orchestrator/.idea/**"
-      - "ai-orchestrator/server.pid"
   push:
     branches: ["main"]
     paths:
