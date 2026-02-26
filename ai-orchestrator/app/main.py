@@ -24,7 +24,7 @@ app = FastAPI(title="DaengDdang AI Orchestrator", version="0.1.0")
 # 헬스 체크 엔드포인트 (LB나 모니터링 시스템에서 호출)
 @app.get("/health")
 def health():
-    return {"status": "ok"}
+    return {"status": "ok111"}
 
 # DEBUG 모드 확인 (기본값: False)
 IS_DEBUG = os.getenv("DEBUG", "false").lower() == "true"

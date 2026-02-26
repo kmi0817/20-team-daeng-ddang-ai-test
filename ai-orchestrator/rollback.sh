@@ -23,7 +23,7 @@ fi
 ROLLBACK_IMAGE=$(cat "${BACKUP_FILE}")
 echo "🔙 복구 대상 이미지: ${ROLLBACK_IMAGE}"
 
-cd "${AI_DIR}"
+cd "${APP_DIR}"
 
 # 3. 중복 롤백 방지 및 현재 이미지 기록
 CURRENT_IMAGE=""
