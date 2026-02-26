@@ -20,8 +20,17 @@ if [ ! -f "${COMPOSE_FILE}" ] || [ ! -f "${BACKUP_FILE}" ]; then
 fi
 
 # 2. 롤백 대상 이미지 정보 읽기
-ROLLBACK_IMAGE=$(cat "${BACKUP_FILE}")
-echo "🔙 복구 대상 이미지: ${ROLLBACK_IMAGE}"
+if [ -f "${BACKUP_FILE}" ]; then
+  ROLLBACK_IMAGE=$(cat "${BACKUP_FILE}" | tr -d '\r\n[:space:]')
+fi
+
+if [ -z "${ROLLBACK_IMAGE:-}" ]; then
+  echo "❌ 롤백 이미지 정보가 비어있습니다."
+  exit 1
+fi
+
+echo "🔙 복구 대상 이미지: [${ROLLBACK_IMAGE}]"
+echo "🔍 [Debug] Raw string length: ${#ROLLBACK_IMAGE}"
 
 cd "${APP_DIR}"
 
@@ -39,8 +48,6 @@ fi
 # 4. .env 생성 및 교체
 umask 077
 printf "%s" "${ENV_FILE_B64}" | base64 -d > "${ENV_FILE}"
-echo "" >> "${ENV_FILE}"
-echo "DOCKER_IMAGE=${ROLLBACK_IMAGE}" >> "${ENV_FILE}" # 롤백 이미지로 변수 고정
 echo "🔐 ${ENV_FILE} 작성 (mode 600)"
 
 # 5. Docker Hub 로그인
@@ -53,10 +60,10 @@ fi
 
 # 6. 실행
 echo "📦 docker compose pull..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull
+DOCKER_IMAGE="${ROLLBACK_IMAGE}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull
 
 echo "🚀 docker compose up -d..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
+DOCKER_IMAGE="${ROLLBACK_IMAGE}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
 
 echo "📋 docker compose ps"
 docker compose -f "${COMPOSE_FILE}" ps
