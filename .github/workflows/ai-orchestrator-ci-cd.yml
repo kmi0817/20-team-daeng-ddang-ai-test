@@ -207,8 +207,11 @@ jobs:
             DOCKERHUB_USERNAME="${{ secrets.DOCKERHUB_USERNAME}}"
             DOCKERHUB_TOKEN="${{ secrets.DOCKERHUB_TOKEN}}"
 
-            mkdir -p ${AI_DIR}
-            cd ${AI_DIR}
+            mkdir -p "${AI_DIR}"
+            cp -f /tmp/ai-orchestrator/deploy.sh "${AI_DIR}/deploy.sh"
+            cp -f /tmp/ai-orchestrator/docker-compose.yml "${AI_DIR}/docker-compose.yml"
+
+            cd "${AI_DIR}"
             chmod +x ./deploy.sh
 
             export IMAGE='${env.DOCKER_IMAGE}'
