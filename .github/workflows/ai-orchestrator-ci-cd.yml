@@ -217,11 +217,11 @@ jobs:
 
             chmod +x ./deploy.sh
 
-            export IMAGE='${DOCKER_IMAGE}'
-            export RELEASE_ID='${RELEASE_ID}'
-            export ENV_FILE_B64='${ENV_FILE_B64}'
-            export DOCKERHUB_USERNAME='${DOCKERHUB_USERNAME}'
-            export DOCKERHUB_TOKEN='${DOCKERHUB_TOKEN}'
+            export IMAGE="${DOCKER_IMAGE}"
+            export RELEASE_ID="${RELEASE_ID}"
+            export ENV_FILE_B64="${ENV_FILE_B64}"
+            export DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME}"
+            export DOCKERHUB_TOKEN="${DOCKERHUB_TOKEN}"
 
             ./deploy.sh
 
@@ -285,7 +285,7 @@ jobs:
 
                   {"name":"Actor","value":"${ACTOR}","inline":true},
                   {"name":"Branch","value":"${BRANCH}","inline":true},
-                  {"name":"Total CD","value":"${cd_total}s","inline":true},
+                  {"name":"Total CD","value":"${cd_total}s","inline":true}
                 ],
                 "timestamp": "$TIMESTAMP"
               }
