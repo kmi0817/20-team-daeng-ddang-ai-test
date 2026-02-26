@@ -7,7 +7,6 @@ ENV_FILE="${APP_DIR}/.env"
 BACKUP_FILE="${APP_DIR}/.backup_image" # 롤백용 이미지:태그가 저장되는 파일
 
 # GitHub Actions에서 넘겨주는 값
-IMAGE="${IMAGE:-}"
 ENV_FILE_B64="${ENV_FILE_B64:-}"
 DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME:-}"
 DOCKERHUB_TOKEN="${DOCKERHUB_TOKEN:-}"
@@ -21,7 +20,7 @@ if [ ! -f "${COMPOSE_FILE}" ] || [ ! -f "${BACKUP_FILE}" ]; then
 fi
 
 # 2. 롤백 대상 이미지 정보 읽기
-ROLLBACK_IMAGE="${IMAGE}:(cat "${BACKUP_FILE}")
+ROLLBACK_IMAGE=$(cat "${BACKUP_FILE}")
 echo "🔙 복구 대상 이미지: ${ROLLBACK_IMAGE}"
 
 cd "${APP_DIR}"
@@ -39,7 +38,7 @@ fi
 
 # 4. .env 생성 및 교체
 umask 077
-echo "${ENV_FILE_B64}" | base64 -d > "${ENV_FILE}"
+printf "%s" "${ENV_FILE_B64}" | base64 -d > "${ENV_FILE}"
 echo "" >> "${ENV_FILE}"
 echo "DOCKER_IMAGE=${ROLLBACK_IMAGE}" >> "${ENV_FILE}" # 롤백 이미지로 변수 고정
 echo "🔐 ${ENV_FILE} 작성 (mode 600)"

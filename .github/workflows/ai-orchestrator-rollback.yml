@@ -142,7 +142,7 @@ jobs:
                   {"name":"Actor","value":"${ACTOR}","inline":true},
                   {"name":"Duration","value":"${DURATION}","inline":true},
                   {"name":"Guard","value":"\`${GUARD_STATUS}\`","inline":true},
-                  {"name":"Rollback","value":"\`${ROLLBACK_STATUS}\`","inline":true},
+                  {"name":"Rollback","value":"\`${ROLLBACK_STATUS}\`","inline":true}
                 ],
                 "timestamp": "$TIMESTAMP"
               }
