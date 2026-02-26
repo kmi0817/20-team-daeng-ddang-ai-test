@@ -7,7 +7,7 @@ on:
       - "ai-orchestrator/**"
       - ".github/workflows/ai-orchestrator-ci-cd.yml"
   push:
-    # branches: ["main"]
+    branches: ["main"]
     paths:
       - "ai-orchestrator/**"
       - ".github/workflows/ai-orchestrator-ci-cd.yml"
@@ -174,8 +174,7 @@ jobs:
     needs: ci
     timeout-minutes: 15
 
-    # if: github.event_name == 'push' && github.ref_name == 'main'
-    if: github.event_name == 'push'
+    if: github.event_name == 'push' && github.ref_name == 'main'
 
     steps:
       - name: Mark CD start

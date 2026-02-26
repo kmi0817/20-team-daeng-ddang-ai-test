@@ -39,9 +39,7 @@ fi
 
 # 2. .env 생성 및 교체
 umask 077
-echo "${ENV_FILE_B64}" | base64 -d > "${ENV_FILE}"
-echo "" >> "${ENV_FILE}"
-echo "DOCKER_IMAGE=${DOCKER_IMAGE}" >> "${ENV_FILE}"
+printf "%s" "${ENV_FILE_B64}" | base64 -d > "${ENV_FILE}"
 echo "🔐 ${ENV_FILE} 작성 (mode 600)"
 
 # 3. Docker Hub 로그인
@@ -54,10 +52,10 @@ fi
 
 # 4. 배포
 echo "📦 docker compose pull..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull
+DOCKER_IMAGE="${DOCKER_IMAGE}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull
 
 echo "🚀 docker compose up -d..."
-docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
+DOCKER_IMAGE="${DOCKER_IMAGE}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
 
 echo "📋 docker compose ps"
 docker compose -f "${COMPOSE_FILE}" ps
@@ -88,10 +86,8 @@ else
   if [ -n "${CURRENT_IMAGE}" ]; then
     echo "🔙 직전 버전(${CURRENT_IMAGE})으로 롤백합니다."
 
-    # .env 파일의 DOCKER_IMAGE 값을 CURRENT_IMAGE로 교체
-    sed -i.bak "s|^DOCKER_IMAGE=.*$|DOCKER_IMAGE=${CURRENT_IMAGE}|g" "${ENV_FILE}"
-    docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull || true
-    docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
+    DOCKER_IMAGE="${CURRENT_IMAGE}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" pull || true
+    DOCKER_IMAGE="${CURRENT_IMAGE}" docker compose --env-file "${ENV_FILE}" -f "${COMPOSE_FILE}" up -d
     echo "⚠️ 롤백 완료. 제대로 롤백됐는지 확인해주세요."
   else
     echo "❌ 롤백할 직전 버전을 찾을 수 없습니다."
@@ -102,4 +98,4 @@ fi
 echo "🧹 prune old images"
 docker image prune -f >/dev/null 2>&1 || true
 
-echo "🎉 deploy success"
+echo "🎉 배포 성공"
