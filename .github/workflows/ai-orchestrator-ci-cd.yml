@@ -1,6 +1,11 @@
 name: AI Orchestrator CI/CD
 
 on:
+  pull_request:
+    branches: ["main"]
+    paths:
+      - "ai-orchestrator/**"
+      - ".github/workflows/ai-orchestrator-ci-cd.yml"
   push:
     # branches: ["main"]
     paths:
@@ -168,6 +173,9 @@ jobs:
     runs-on: ubuntu-latest
     needs: ci
     timeout-minutes: 15
+
+    # if: github.event_name == 'push' && github.ref_name == 'main'
+    if: github.event_name == 'push'
 
     steps:
       - name: Mark CD start
