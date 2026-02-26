@@ -29,7 +29,7 @@ CURRENT_IMAGE=""
 if docker inspect ai-orchestrator >/dev/null 2>&1; then
   CURRENT_IMAGE="$(docker inspect -f '{{.Config.Image}}' ai-orchestrator 2>/dev/null || true)"
 
-  if [ "${CURRENT_IMAGE}" == "${NEW_DOCKER_IMAGE}" ]; then
+  if [ "${CURRENT_IMAGE}" == "${DOCKER_IMAGE}" ]; then
     echo "⏩ 현재 실행 중인 이미지와 배포하려는 이미지가 동일합니다. 배포를 중단합니다."
     exit 0 # 에러가 아니므로 정상 종료
   fi
