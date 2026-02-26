@@ -252,8 +252,6 @@ jobs:
           dur() { local s="${1:-}" e="${2:-}"; [ -n "$s" ] && [ -n "$e" ] && echo $((e - s)) || echo 0; }
 
           cd_total="$(dur "$CD_START" "$CD_END")"
-          lint_sec="$(dur "$LINT_S" "$LINT_E")"
-          build_sec="$(dur "$BUILD_S" "$BUILD_E")"
 
           TIMESTAMP="${TIMESTAMP:-$(date -u +%FT%TZ)}"
 
