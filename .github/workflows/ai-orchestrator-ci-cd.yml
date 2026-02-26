@@ -205,6 +205,7 @@ jobs:
           host: ${{ secrets.AI_HOST }}
           username: ${{ secrets.AI_USERNAME }}
           key: ${{ secrets.AI_SSH_KEY }}
+          envs: DOCKER_IMAGE,RELEASE_ID,ENV_FILE_B64,DOCKERHUB_USERNAME,DOCKERHUB_TOKEN
           script: |
             set -euo pipefail
 
@@ -214,14 +215,7 @@ jobs:
 
             cp -f /tmp/ai-orchestrator/deploy.sh "${AI_DIR}/deploy.sh"
             cp -f /tmp/ai-orchestrator/docker-compose.yml "${AI_DIR}/docker-compose.yml"
-
             chmod +x ./deploy.sh
-
-            export IMAGE="${DOCKER_IMAGE}"
-            export RELEASE_ID="${RELEASE_ID}"
-            export ENV_FILE_B64="${ENV_FILE_B64}"
-            export DOCKERHUB_USERNAME="${DOCKERHUB_USERNAME}"
-            export DOCKERHUB_TOKEN="${DOCKERHUB_TOKEN}"
 
             ./deploy.sh
 
