@@ -16,11 +16,10 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - run: |
-          echo "TEST"
-      #     if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
-      #       echo "❌ main 브랜치에 대해서만 롤백 워크플로를 실행할 수 있습니다."
-      #       exit 1
-      #     fi
+          if [[ "${GITHUB_REF_NAME}" != "main" ]]; then
+            echo "❌ main 브랜치에 대해서만 롤백 워크플로를 실행할 수 있습니다."
+            exit 1
+          fi
 
   rollback:
     name: Rollback
