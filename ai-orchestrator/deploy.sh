@@ -4,6 +4,7 @@ set -euo pipefail
 APP_DIR="/opt/app/ai"
 COMPOSE_FILE="${APP_DIR}/docker-compose.yml"
 ENV_FILE="${APP_DIR}/.env"
+BACKUP_FILE="${APP_DIR}/.backup_image" # 롤백용 이미지:태그가 저장되는 파일
 
 # GitHub Actions에서 넘겨주는 값
 IMAGE="${IMAGE:-}"
@@ -23,12 +24,21 @@ test -f "${COMPOSE_FILE}"
 
 DOCKER_IMAGE="${IMAGE}:${RELEASE_ID}"
 
-# rollback용 현재 이미지 기록
+# 롤백용 현재 이미지 기록
 CURRENT_IMAGE=""
 if docker inspect ai-orchestrator >/dev/null 2>&1; then
   CURRENT_IMAGE="$(docker inspect -f '{{.Config.Image}}' ai-orchestrator 2>/dev/null || true)"
+
+  if [ "${CURRENT_IMAGE}" == "${NEW_DOCKER_IMAGE}" ]; then
+    echo "⏩ 현재 실행 중인 이미지와 배포하려는 이미지가 동일합니다. 배포를 중단합니다."
+    exit 0 # 에러가 아니므로 정상 종료
+  fi
+
+  if [ -n "${CURRENT_IMAGE}" ]; then
+    echo "${CURRENT_IMAGE}" > "${BACKUP_FILE}"
+    echo "💾 백업 이미지 업데이트 완료: ${CURRENT_IMAGE}"
+  fi
 fi
-echo "🧩 CURRENT_IMAGE=${CURRENT_IMAGE:-none}"
 
 # .env 생성 및 교체
 umask 077
