@@ -17,7 +17,7 @@ if [ -z "${IMAGE}" ] || [ -z "${RELEASE_ID}" ] || [ -z "${ENV_FILE_B64}" ]; then
 fi
 
 echo "🌐 AI Orchestrator deploy (docker compose)"
-echo "🏷️  RELEASE_ID=${RELEASE_ID}"
+echo "🏷️ RELEASE_ID=${RELEASE_ID}"
 
 cd "${APP_DIR}"
 test -f "${COMPOSE_FILE}"
