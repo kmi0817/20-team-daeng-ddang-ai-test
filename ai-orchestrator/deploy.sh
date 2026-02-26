@@ -33,6 +33,7 @@ echo "🧩 CURRENT_IMAGE=${CURRENT_IMAGE:-none}"
 # .env 생성 및 교체
 umask 077
 echo "${ENV_FILE_B64}" | base64 -d > "${ENV_FILE}"
+echo "" >> "${ENV_FILE}"
 echo "DOCKER_IMAGE=${IMAGE}" >> "${ENV_FILE}"
 echo "🔐 ${ENV_FILE} 작성 (mode 600)"
 
