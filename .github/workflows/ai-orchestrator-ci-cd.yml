@@ -4,8 +4,13 @@ on:
   pull_request:
     branches: ["main"]
     paths:
-      - "ai-orchestrator/**"
       - ".github/workflows/ai-orchestrator-ci-cd.yml"
+      - "ai-orchestrator/**"
+      - "!ai-orchestrator/README.md"
+      - "!ai-orchestrator/.env.example"
+      - "!ai-orchestrator/.gitignore"
+      - "!ai-orchestrator/.idea/**"
+      - "!ai-orchestrator/server.pid"
     paths-ignore:
       - "ai-orchestrator/README.md"
       - "ai-orchestrator/.env.example"
@@ -15,14 +20,13 @@ on:
   push:
     branches: ["main"]
     paths:
-      - "ai-orchestrator/**"
       - ".github/workflows/ai-orchestrator-ci-cd.yml"
-    paths-ignore:
-      - "ai-orchestrator/README.md"
-      - "ai-orchestrator/.env.example"
-      - "ai-orchestrator/.gitignore"
-      - "ai-orchestrator/.idea/**"
-      - "ai-orchestrator/server.pid"
+      - "ai-orchestrator/**"
+      - "!ai-orchestrator/README.md"
+      - "!ai-orchestrator/.env.example"
+      - "!ai-orchestrator/.gitignore"
+      - "!ai-orchestrator/.idea/**"
+      - "!ai-orchestrator/server.pid"
   workflow_dispatch: {}
 
 permissions:
