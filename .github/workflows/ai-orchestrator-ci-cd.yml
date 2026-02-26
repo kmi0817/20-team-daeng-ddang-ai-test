@@ -6,11 +6,23 @@ on:
     paths:
       - "ai-orchestrator/**"
       - ".github/workflows/ai-orchestrator-ci-cd.yml"
+    paths-ignore:
+      - "ai-orchestrator/README.md"
+      - "ai-orchestrator/.env.example"
+      - "ai-orchestrator/.gitignore"
+      - "ai-orchestrator/.idea/**"
+      - "ai-orchestrator/server.pid"
   push:
     branches: ["main"]
     paths:
       - "ai-orchestrator/**"
       - ".github/workflows/ai-orchestrator-ci-cd.yml"
+    paths-ignore:
+      - "ai-orchestrator/README.md"
+      - "ai-orchestrator/.env.example"
+      - "ai-orchestrator/.gitignore"
+      - "ai-orchestrator/.idea/**"
+      - "ai-orchestrator/server.pid"
   workflow_dispatch: {}
 
 permissions:
